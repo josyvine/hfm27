@@ -1,0 +1,121 @@
+name: Build Android APK & Play Store AAB
+
+on:
+  push:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # 1. Setup Android SDK & NDK r28 for 16 KB Page Alignment
+      - name: Setup Android SDK & NDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'ndk;28.0.12433566'
+          accept-android-sdk-licenses: true
+
+      # 2. Decode Keystore file from GitHub Secrets
+      - name: Decode Keystore
+        run: |
+          mkdir -p app
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.jks
+
+      # 3. Setup Gradle
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      # 4. Generate Gradle Wrapper & Grant Execute Permission
+      - name: Prepare Gradle Wrapper
+        run: |
+          gradle wrapper
+          chmod +x gradlew
+
+      # 5. Build Signed Release APK & Play Store AAB
+      - name: Build Release APK & Play Store AAB
+        run: ./gradlew clean app:assembleRelease app:bundleRelease
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/app/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      # 6. Verify 16 KB Page Size Alignment in AAB
+      - name: Verify 16 KB Page Size Alignment in AAB
+        shell: bash
+        run: |
+          AAB_PATH="app/build/outputs/bundle/release/app-release.aab"
+          if [ ! -f "$AAB_PATH" ]; then
+            echo "❌ AAB file not found at $AAB_PATH"
+            exit 1
+          fi
+
+          SDK_DIR="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          LLVM_OBJDUMP=$(find "$SDK_DIR/ndk" -name "llvm-objdump" | sort -V | tail -n 1)
+          if [ -z "$LLVM_OBJDUMP" ]; then
+            echo "❌ llvm-objdump not found in $SDK_DIR/ndk"
+            exit 1
+          fi
+
+          TMP_DIR=$(mktemp -d)
+          unzip -q "$AAB_PATH" "base/lib/arm64-v8a/*" "base/lib/x86_64/*" -d "$TMP_DIR" || true
+
+          FAILED=0
+          FOUND=0
+          while IFS= read -r -d '' SO; do
+            FOUND=1
+            REL_PATH="${SO#$TMP_DIR/}"
+            echo "Checking: $REL_PATH"
+            ALIGNS=$("$LLVM_OBJDUMP" -p "$SO" | grep "LOAD" | awk '{print $NF}')
+            if [ -z "$ALIGNS" ]; then
+              echo "  ⚠️ No LOAD segments found in $REL_PATH"
+              FAILED=1
+              continue
+            fi
+            for A in $ALIGNS; do
+              echo "  LOAD align: $A"
+              EXP=${A#2\*\*}
+              if ! [[ "$EXP" =~ ^[0-9]+$ ]] || [ "$EXP" -lt 14 ]; then
+                echo "  ❌ UNALIGNED (< 16KB): $REL_PATH ($A)"
+                FAILED=1
+              fi
+            done
+          done < <(find "$TMP_DIR" -name "*.so" -print0)
+
+          rm -rf "$TMP_DIR"
+          if [ "$FOUND" -eq 0 ]; then
+            echo "ℹ️ No 64-bit .so libraries found in AAB."
+            exit 0
+          fi
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo "❌ 16 KB page size verification FAILED!"
+            exit 1
+          fi
+          echo "✅ All 64-bit .so libraries in the AAB are 16 KB aligned!"
+
+      # 7. Upload Signed Release APK
+      - name: Upload Signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Hfm-Release.apk
+          path: app/build/outputs/apk/release/*.apk
+
+      # 8. Upload Signed Play Store AAB
+      - name: Upload Signed AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: Hfm-Release.aab
+          path: app/build/outputs/bundle/release/*.aab
