@@ -85,6 +85,7 @@ public class SearchActivity extends Activity implements SearchAdapter.OnItemClic
     private RecyclerView searchResultsGrid;
     private SearchAdapter adapter;
     private GridLayoutManager gridLayoutManager;
+    private DragSelectTouchListener dragSelectTouchListener;
 
     private List<Object> masterList = new ArrayList<>();
     private List<Object> displayList = new ArrayList<>();
@@ -111,6 +112,7 @@ public class SearchActivity extends Activity implements SearchAdapter.OnItemClic
     private Future<?> currentSearchFuture = null; // Thread Immunity: Task reference to control cancellations
 
     private static final Pattern FILE_BASE_NAME_PATTERN = Pattern.compile("^(IMG|VID|PANO|DSC)_\\d{8}_\\d{6}");
+    private static final Pattern RANGE_PATTERN = Pattern.compile("\\b(\\d+)\\s+to\\s+(\\d+)\\b", Pattern.CASE_INSENSITIVE);
 
     private List<SearchResult> mResultsPendingPermission;
     private Runnable mPendingOperation;
@@ -165,7 +167,10 @@ public class SearchActivity extends Activity implements SearchAdapter.OnItemClic
         String folderPath;
         long startTimeSeconds = -1;
         long endTimeSeconds = -1;
+        int rangeStart = -1;
+        int rangeEnd = -1;
         void setDateRange(long start, long end) { this.startTimeSeconds = start; this.endTimeSeconds = end; }
+        void setSelectionRange(int start, int end) { this.rangeStart = start; this.rangeEnd = end; }
     }
 
     @Override
@@ -266,6 +271,111 @@ public class SearchActivity extends Activity implements SearchAdapter.OnItemClic
         searchResultsGrid.setLayoutManager(gridLayoutManager);
         adapter = new SearchAdapter(this, displayList, this, this, this);
         searchResultsGrid.setAdapter(adapter);
+
+        dragSelectTouchListener = new DragSelectTouchListener(this, new DragSelectTouchListener.OnDragSelectListener() {
+            @Override
+            public void onSelectChange(int start, int end, boolean isSelected) {
+                applyDragSelection(start, end, isSelected);
+            }
+        });
+        dragSelectTouchListener.setTapDragSelectionConfig(new DragSelectTouchListener.TapDragSelectionPredicate() {
+            @Override
+            public boolean isItemSelected(int position) {
+                if (position >= 0 && position < displayList.size()) {
+                    Object obj = displayList.get(position);
+                    if (obj instanceof SearchResult) {
+                        return !((SearchResult) obj).isExcluded();
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public boolean hasAnySelection() {
+                for (Object obj : masterList) {
+                    if (obj instanceof SearchResult && !((SearchResult) obj).isExcluded()) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public boolean isSelectable(int position) {
+                return position >= 0 && position < displayList.size() && displayList.get(position) instanceof SearchResult;
+            }
+        });
+        searchResultsGrid.addOnItemTouchListener(dragSelectTouchListener);
+    }
+
+    private void applyDragSelection(int start, int end, boolean isSelected) {
+        int min = Math.min(start, end);
+        int max = Math.max(start, end);
+        Set<SearchResult> updatedItems = new HashSet<>();
+
+        for (int i = min; i <= max; i++) {
+            if (i >= 0 && i < displayList.size()) {
+                Object obj = displayList.get(i);
+                if (obj instanceof SearchResult) {
+                    SearchResult result = (SearchResult) obj;
+                    if (result.isExcluded() == isSelected) {
+                        result.setExcluded(!isSelected);
+                        adapter.notifyItemChanged(i);
+                        updatedItems.add(result);
+                    }
+                }
+            }
+        }
+
+        if (!updatedItems.isEmpty()) {
+            Set<DateHeader> checkedHeaders = new HashSet<>();
+            for (SearchResult item : updatedItems) {
+                DateHeader parentHeader = findParentHeader(item);
+                if (parentHeader != null && checkedHeaders.add(parentHeader)) {
+                    syncHeaderCheckedState(parentHeader);
+                }
+            }
+        }
+    }
+
+    private DateHeader findParentHeader(SearchResult item) {
+        int itemIndex = masterList.indexOf(item);
+        if (itemIndex == -1) return null;
+        for (int i = itemIndex - 1; i >= 0; i--) {
+            if (masterList.get(i) instanceof DateHeader) {
+                return (DateHeader) masterList.get(i);
+            }
+        }
+        return null;
+    }
+
+    private void syncHeaderCheckedState(DateHeader parentHeader) {
+        int headerIndex = masterList.indexOf(parentHeader);
+        if (headerIndex == -1) return;
+
+        boolean allIncluded = true;
+        boolean hasFiles = false;
+        for (int i = headerIndex + 1; i < masterList.size(); i++) {
+            Object currentItem = masterList.get(i);
+            if (currentItem instanceof SearchResult) {
+                hasFiles = true;
+                if (((SearchResult) currentItem).isExcluded()) {
+                    allIncluded = false;
+                    break;
+                }
+            } else if (currentItem instanceof DateHeader) {
+                break;
+            }
+        }
+
+        boolean shouldCheck = hasFiles && allIncluded;
+        if (parentHeader.isChecked() != shouldCheck) {
+            parentHeader.setChecked(shouldCheck);
+            int displayIndex = displayList.indexOf(parentHeader);
+            if (displayIndex != -1) {
+                adapter.notifyItemChanged(displayIndex);
+            }
+        }
     }
 
     private void setupPinchToZoom() {
@@ -307,7 +417,7 @@ public class SearchActivity extends Activity implements SearchAdapter.OnItemClic
 
                     if (!mediaStoreResults.isEmpty()) {
                         writeErrorLogToDisk("MediaStore successfully returned " + mediaStoreResults.size() + " results in " + durationMs + " ms for query: [" + query + "] [Filter: " + currentFilterType + "]", null);
-                        updateUIWithResults(mediaStoreResults);
+                        updateUIWithResults(mediaStoreResults, params);
                     } else {
                         writeErrorLogToDisk("MediaStore returned 0 results for query: [" + query + "] [Filter: " + currentFilterType + "]. Switching to direct disk scan fallback.", null);
                         runOnUiThread(new Runnable() {
@@ -319,7 +429,7 @@ public class SearchActivity extends Activity implements SearchAdapter.OnItemClic
                         List<SearchResult> fileSystemResults = performFallbackFileSearch(params);
                         long fallbackDurationMs = System.currentTimeMillis() - startTimeMs;
                         writeErrorLogToDisk("Fallback deep disk scan returned " + fileSystemResults.size() + " results in " + fallbackDurationMs + " ms for query: [" + query + "] [Filter: " + currentFilterType + "]", null);
-                        updateUIWithResults(fileSystemResults);
+                        updateUIWithResults(fileSystemResults, params);
                     }
                 } catch (Throwable t) {
                     AppLogger.logError(TAG, "Unhandled exception during search query execution", t);
@@ -328,7 +438,7 @@ public class SearchActivity extends Activity implements SearchAdapter.OnItemClic
                     try {
                         final QueryParameters params = parseQuery(query);
                         List<SearchResult> fileSystemResults = performFallbackFileSearch(params);
-                        updateUIWithResults(fileSystemResults);
+                        updateUIWithResults(fileSystemResults, params);
                     } catch (Throwable fallbackEx) {
                         writeErrorLogToDisk("Search query disk fallback also failed", fallbackEx);
                         Log.e(TAG, "Search query disk fallback failed completely.", fallbackEx);
@@ -338,8 +448,8 @@ public class SearchActivity extends Activity implements SearchAdapter.OnItemClic
         });
     }
 
-    private void updateUIWithResults(final List<SearchResult> results) {
-        final List<Object> groupedList = processAndGroupResults(results);
+    private void updateUIWithResults(final List<SearchResult> results, final QueryParameters params) {
+        final List<Object> groupedList = processAndGroupResults(results, params);
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -371,7 +481,7 @@ public class SearchActivity extends Activity implements SearchAdapter.OnItemClic
         adapter.updateData(displayList);
     }
 
-    private List<Object> processAndGroupResults(List<SearchResult> flatResults) {
+    private List<Object> processAndGroupResults(List<SearchResult> flatResults, QueryParameters params) {
         List<Object> groupedList = new ArrayList<>();
         if (flatResults.isEmpty()) {
             return groupedList;
@@ -387,6 +497,38 @@ public class SearchActivity extends Activity implements SearchAdapter.OnItemClic
                 groupedList.add(new DateHeader(currentHeaderDate));
             }
             groupedList.add(result);
+        }
+
+        if (params != null && params.rangeStart != -1 && params.rangeEnd != -1) {
+            int fileIndex = 1;
+            for (Object item : groupedList) {
+                if (item instanceof SearchResult) {
+                    boolean inRange = (fileIndex >= params.rangeStart && fileIndex <= params.rangeEnd);
+                    ((SearchResult) item).setExcluded(!inRange);
+                    fileIndex++;
+                }
+            }
+
+            for (int i = 0; i < groupedList.size(); i++) {
+                if (groupedList.get(i) instanceof DateHeader) {
+                    DateHeader header = (DateHeader) groupedList.get(i);
+                    boolean allIncluded = true;
+                    boolean hasFiles = false;
+                    for (int j = i + 1; j < groupedList.size(); j++) {
+                        Object next = groupedList.get(j);
+                        if (next instanceof SearchResult) {
+                            hasFiles = true;
+                            if (((SearchResult) next).isExcluded()) {
+                                allIncluded = false;
+                                break;
+                            }
+                        } else if (next instanceof DateHeader) {
+                            break;
+                        }
+                    }
+                    header.setChecked(hasFiles && allIncluded);
+                }
+            }
         }
 
         return groupedList;
@@ -417,7 +559,7 @@ public class SearchActivity extends Activity implements SearchAdapter.OnItemClic
                             return Long.compare(r2.getLastModifiedForGrouping(), r1.getLastModifiedForGrouping());
                         }
                     });
-                    updateUIWithResults(initialBatch);
+                    updateUIWithResults(initialBatch, params);
                 }
 
                 masterResults.addAll(querySingleUriSafely(MediaStore.Files.getContentUri("external"), params, MediaStore.Files.FileColumns.MEDIA_TYPE_NONE, processedPaths));
@@ -787,6 +929,24 @@ public class SearchActivity extends Activity implements SearchAdapter.OnItemClic
         if (q_trimmed.isEmpty()) {
             return params;
         }
+
+        // Extract optional numeric selection range (e.g. "1 to 100") before existing query parsing
+        Matcher rangeMatcher = RANGE_PATTERN.matcher(q_trimmed);
+        if (rangeMatcher.find()) {
+            try {
+                int start = Integer.parseInt(rangeMatcher.group(1));
+                int end = Integer.parseInt(rangeMatcher.group(2));
+                if (start >= 1 && end >= start) {
+                    params.setSelectionRange(start, end);
+                }
+            } catch (NumberFormatException ignored) {}
+            q_trimmed = (q_trimmed.substring(0, rangeMatcher.start()) + " " + q_trimmed.substring(rangeMatcher.end()))
+                    .replaceAll("\\s+", " ").trim();
+            if (q_trimmed.isEmpty()) {
+                return params;
+            }
+        }
+
         String q_lower = q_trimmed.toLowerCase();
 
         switch (currentFilterType) {
@@ -2062,3 +2222,5 @@ public class SearchActivity extends Activity implements SearchAdapter.OnItemClic
         }
     }
 }
+
+
