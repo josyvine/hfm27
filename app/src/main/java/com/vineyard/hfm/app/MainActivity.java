@@ -472,13 +472,6 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public void openMassDelete() {
-            Intent intent = new Intent(mContext, MassDeleteActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            mContext.startActivity(intent);
-        }
-
-        @JavascriptInterface
         public void openRecycleBin() {
             Intent intent = new Intent(mContext, RecycleBinActivity.class);
             mContext.startActivity(intent);
