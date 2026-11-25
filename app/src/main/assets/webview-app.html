@@ -248,10 +248,6 @@
 
 	  <div class="slider-menu" id="sliderMenu">
 
-		<button class="slider-icon-btn" id="openFolderBtn" title="Open Folder">
-		  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
-		  <span>Open</span>
-		</button>
         <button class="slider-icon-btn" id="shareHubBtn" title="Share Files">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3s3-1.34 3-3-1.34-3-3-3z"/></svg>
           <span>Share</span>
@@ -275,10 +271,6 @@
           <span>Stealth</span>
         </button>
 
-        <button class="slider-icon-btn" id="massDeleteBtn" title="Mass Select & Delete">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M4 11h6V5H4v6zm0 7h6v-6H4v6zm8 0h6v-6h-6v6zm0-18v6h6V5h-6z"/></svg>
-          <span>Mass Select</span>
-        </button>
 		<button class="slider-icon-btn" id="cleanCacheBtn" title="Clean Cache">
 		  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M15 16h4v2h-4v-2zm0-8h7v2h-7V8zm0 4h6v2h-6v-2zM3 18c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V8H3v10zM14 5h-3l-1-1H6L5 5H2v2h12V5z"/></svg>
 		  <span>Clean</span>
@@ -338,11 +330,11 @@
 		  <div class="right-content">
 			<!-- Right panel content is preserved -->
             <h3>Instructions</h3>
-            <p>1. Swipe from the right edge to open the menu.</p>
-            <p>2. Tap 'Open' to select a folder. This will open a new screen.</p>
-            <p>3. On the new screen, you can see all your files. Use the buttons at the top to sort or filter them.</p>
-            <p>4. To select files, tap them individually. To select a range, long-press a file and drag your finger.</p>
-            <p>5. Use the delete button at the bottom of the pop-up screen to delete selected files.</p>
+            <p>1. Tap the Search icon at the bottom right to open Native File Search, or swipe from the right edge to open the menu.</p>
+            <p>2. Use the search bar for natural date queries (e.g., <code>WhatsApp today</code>) or range queries (e.g., <code>WhatsApp images 1 to 100</code>).</p>
+            <p>3. Use the filter button at the bottom left to filter files by type or browse folders.</p>
+            <p>4. To select files, tap them individually. To select a range, tap one file and drag your finger across the grid. Long-press any file for Open, Details, or Compress options.</p>
+            <p>5. Use the delete button at the bottom right of the search screen to delete selected files.</p>
 		  </div>
 		  <div class="footer">
 			<div id="inspector" class="footer-info"></div>
@@ -366,21 +358,18 @@
           <p><b>NEW:</b> If you close the dashboard, you can reopen it any time by swiping down from the top of this main screen.</p>
 
           <h3>Finding & Deleting Files</h3>
-          <p>There are two primary ways to find and delete files, both launched from the slider menu.</p>
+          <p>Use the Search icon at the bottom right of the main screen to launch <b>Native File Search</b>, which combines natural language search and bulk range selection.</p>
 
-          <h3>1. Native File Search (via "Open" button)</h3>
-          <p>This is the most powerful way to find files. You can use natural language queries in the search bar at the bottom. Examples:</p>
+          <h3>1. Natural Date & Range Search</h3>
+          <p>You can type natural language date queries or sequential range queries directly into the search bar at the bottom. Examples:</p>
           <ul>
 			<li><code>WhatsApp today</code> - Finds all files from WhatsApp folders modified today.</li>
 			<li><code>Camera yesterday</code> - Finds all files in the Camera folder from yesterday.</li>
 			<li><code>Download 5 days ago</code> - Finds files in the Download folder from 5 days ago.</li>
+			<li><code>WhatsApp images 1 to 100</code> or <code>Camera 1 to 200</code> - Finds matching files/folders and automatically selects items 1 through 100 (or 200) for deletion.</li>
           </ul>
           <p><b>Smart Deletion:</b> Some apps (like GPS cameras) create multiple versions of one photo (e.g., one with a map and one without). When you try to delete one, this app will automatically find all related "sibling" files and ask if you want to delete them all, preventing "ghost" files from reappearing later.</p>
-          <p><b>Features:</b> Pinch the screen to zoom in or out on the file grid. Use the filter button to narrow results by type (images, videos, etc.). Select a whole day's worth of files by checking the box on the date header.</p>
-
-          <h3>2. Mass Selection & Delete (via "Mass Select" button)</h3>
-          <p>This tool is designed for bulk deletion of large, sequential file sets. Use the search bar to define a folder and a range. For example: <code>Camera 1 to 200</code> will find all files in the Camera folder and automatically select the first 200 for deletion.</p>
-          <p><b>Features:</b> You can also select files by long-pressing on one file and dragging your finger across the grid to select a range.</p>
+          <p><b>Features:</b> Pinch the screen to zoom in or out on the file grid. Use the filter button to narrow results by type (images, videos, etc.) or browse folders. Tap one file and drag across the grid to select a range, or long-press any file for Open, Details, or Compress options. Select a whole day's worth of files by checking the box on the date header.</p>
 
           <h3>Advanced Security: Hiding Files with Rituals</h3>
           <p>This feature allows you to encrypt and hide files, making them accessible only by performing a unique, multi-step "Ritual".</p>
@@ -453,7 +442,6 @@
 document.addEventListener("DOMContentLoaded", function() {
 
     // --- Elements ---
-    const openFolderBtn = document.getElementById('openFolderBtn');
     const shareHubBtn = document.getElementById('shareHubBtn');
     const hfmDropBtn = document.getElementById('hfmDropBtn'); 
     const panel = document.querySelector('.panel');
@@ -464,7 +452,6 @@ document.addEventListener("DOMContentLoaded", function() {
     const contactBtn = document.getElementById('contactBtn');
     const cleanCacheBtn = document.getElementById('cleanCacheBtn');
     const recycleBinBtn = document.getElementById('recycleBinBtn');
-    const massDeleteBtn = document.getElementById('massDeleteBtn');
     const readerBtn = document.getElementById('readerBtn');
     const storageMapBtn = document.getElementById('storageMapBtn');
     const hideFileBtn = document.getElementById('hideFileBtn');
@@ -487,7 +474,6 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // --- INITIALIZATION ---
     function initialize() {
-        openFolderBtn.onclick = function() { callAndroid('openSearch'); };
         shareHubBtn.onclick = function() { callAndroid('openShareHub'); };
         hfmDropBtn.onclick = openDropModal; 
 
@@ -500,7 +486,6 @@ document.addEventListener("DOMContentLoaded", function() {
         contactBtn.onclick = function() { callAndroid('openContactForm'); };
         cleanCacheBtn.onclick = function() { callAndroid('clearCache'); };
         recycleBinBtn.onclick = function() { callAndroid('openRecycleBin'); };
-        massDeleteBtn.onclick = function() { callAndroid('openMassDelete'); };
         readerBtn.onclick = function() { callAndroid('openReader'); };
         storageMapBtn.onclick = function() { callAndroid('openStorageMap'); };
         hideFileBtn.onclick = function() { callAndroid('onHideIconTapped'); };
