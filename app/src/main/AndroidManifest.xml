@@ -110,13 +110,6 @@
             android:exported="false"/>
 
         <activity
-            android:name=".MassDeleteActivity"
-            android:label="Mass Selection Delete"
-            android:theme="@style/AppTheme.Light"
-            android:windowSoftInputMode="adjustResize"
-            android:exported="false"/>
-
-        <activity
             android:name=".RecycleBinActivity"
             android:label="Recycle Bin"
             android:theme="@style/AppTheme.Light"
